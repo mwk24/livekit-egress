@@ -53,7 +53,7 @@ type appWriter struct {
 	writePLI         func()
 
 	// a/v sync
-	cs          *synchronizer
+	cs          *Synchronizer
 	clockSynced bool
 	rtpOffset   int64
 	ptsOffset   int64
@@ -83,7 +83,7 @@ func NewAppWriter(
 	rp *lksdk.RemoteParticipant,
 	l logger.Logger,
 	src *app.Source,
-	cs *synchronizer,
+	cs *Synchronizer,
 	playing chan struct{},
 	writeBlanks bool,
 ) (*appWriter, error) {

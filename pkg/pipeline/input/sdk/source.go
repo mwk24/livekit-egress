@@ -35,6 +35,7 @@ func (s *SDKInput) joinRoom(p *params.Params) error {
 
 	// Start recording on data received
 	cb.OnDataReceived = func(data []byte, participant *lksdk.RemoteParticipant) {
+		s.logger.Debugw("received data", nil, "identity", participant.Identity(), "data", string(data))
 		close(s.startRecording)
 	}
 

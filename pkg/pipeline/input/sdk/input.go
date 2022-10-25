@@ -28,7 +28,7 @@ type SDKInput struct {
 
 	room   *lksdk.Room
 	logger logger.Logger
-	cs     *synchronizer
+	cs     *Synchronizer
 
 	// track
 	trackID string
@@ -66,7 +66,7 @@ func NewSDKInput(ctx context.Context, p *params.Params) (*SDKInput, error) {
 
 	s := &SDKInput{
 		logger:         p.Logger,
-		cs:             &synchronizer{},
+		cs:             &Synchronizer{},
 		mutedChan:      p.MutedChan,
 		endRecording:   make(chan struct{}),
 		startRecording: make(chan struct{}),
