@@ -77,7 +77,7 @@ type appWriter struct {
 	vp8Munger      *sfu.VP8Munger
 }
 
-func newAppWriter(
+func NewAppWriter(
 	track *webrtc.TrackRemote,
 	codec params.MimeType,
 	rp *lksdk.RemoteParticipant,

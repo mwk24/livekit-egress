@@ -32,6 +32,12 @@ func (s *SDKInput) joinRoom(p *params.Params) error {
 
 	var onSubscribeErr error
 	var wg sync.WaitGroup
+
+	// Start recording on data received
+	cb.OnDataReceived = func(data []byte, participant *lksdk.RemoteParticipant) {
+		close(s.startRecording)
+	}
+
 	cb.OnTrackSubscribed = func(track *webrtc.TrackRemote, pub *lksdk.RemoteTrackPublication, rp *lksdk.RemoteParticipant) {
 		defer wg.Done()
 		s.logger.Debugw("track subscribed", "trackID", track.ID(), "mime", track.Codec().MimeType)
@@ -117,7 +123,7 @@ func (s *SDKInput) joinRoom(p *params.Params) error {
 			s.audioSrc = app.SrcFromElement(src)
 			s.audioPlaying = make(chan struct{})
 			s.audioCodec = track.Codec()
-			s.audioWriter, err = newAppWriter(track, codec, rp, s.logger, s.audioSrc, s.cs, s.audioPlaying, writeBlanks)
+			s.audioWriter, err = NewAppWriter(track, codec, rp, s.logger, s.audioSrc, s.cs, s.audioPlaying, writeBlanks)
 			s.audioParticipant = rp.Identity()
 			if err != nil {
 				s.logger.Errorw("could not create app writer", err)
@@ -129,7 +135,7 @@ func (s *SDKInput) joinRoom(p *params.Params) error {
 			s.videoSrc = app.SrcFromElement(src)
 			s.videoPlaying = make(chan struct{})
 			s.videoCodec = track.Codec()
-			s.videoWriter, err = newAppWriter(track, codec, rp, s.logger, s.videoSrc, s.cs, s.videoPlaying, writeBlanks)
+			s.videoWriter, err = NewAppWriter(track, codec, rp, s.logger, s.videoSrc, s.cs, s.videoPlaying, writeBlanks)
 			s.videoParticipant = rp.Identity()
 			if err != nil {
 				s.logger.Errorw("could not create app writer", err)

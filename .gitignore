@@ -5,3 +5,4 @@ test/output/*
 test/*.yaml
 .github/workflows/config.yaml
 !test/config-sample.yaml
+config.yaml
