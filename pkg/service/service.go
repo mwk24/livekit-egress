@@ -3,29 +3,35 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/urfave/cli/v2"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
 	"github.com/livekit/egress/pkg/config"
+	"github.com/livekit/egress/pkg/errors"
 	"github.com/livekit/egress/pkg/pipeline/params"
 	"github.com/livekit/egress/pkg/stats"
 	"github.com/livekit/egress/version"
 	"github.com/livekit/protocol/egress"
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/logger"
+	"github.com/livekit/protocol/redis"
 	"github.com/livekit/protocol/tracer"
 )
 
@@ -246,6 +252,19 @@ func (s *Service) launchHandler(ctx context.Context, req *livekit.StartEgressReq
 
 	tempPath := path.Join(os.TempDir(), req.EgressId)
 
+	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
+	flagSet.String("config-body", string(confString), "")
+	flagSet.String("request", string(reqString), "")
+	flagSet.String("temp-path", tempPath, "")
+
+	context := cli.NewContext(nil, flagSet, nil)
+
+	err = runHandlerCopy(context)
+	if err != nil {
+		span.RecordError(err)
+		logger.Errorw("failed to run handler", err)
+	}
+
 	cmd := exec.Command("egress",
 		"run-handler",
 		"--config-body", string(confString),
@@ -269,9 +288,78 @@ func (s *Service) launchHandler(ctx context.Context, req *livekit.StartEgressReq
 		_ = os.RemoveAll(tempPath)
 	}()
 
-	if err = cmd.Run(); err != nil {
-		logger.Errorw("could not launch handler", err)
+	// if err = cmd.Run(); err != nil {
+	// 	logger.Errorw("could not launch handler", err)
+	// }
+}
+
+func getConfig(c *cli.Context) (*config.Config, error) {
+	configFile := c.String("config")
+	configBody := c.String("config-body")
+	if configBody == "" {
+		if configFile == "" {
+			return nil, errors.ErrNoConfig
+		}
+		content, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		configBody = string(content)
 	}
+
+	return config.NewConfig(configBody)
+}
+
+func runHandlerCopy(c *cli.Context) error {
+	conf, err := getConfig(c)
+	if err != nil {
+		return err
+	}
+
+	ctx, span := tracer.Start(context.Background(), "Handler.New")
+	defer span.End()
+
+	logger.Debugw("handler launched")
+
+	tmpPath := c.String("temp-path")
+	if tmpPath != "" {
+		logger.Infow("setting TMPDIR environment and creating path", "path", tmpPath)
+		err := os.MkdirAll(tmpPath, 0755)
+		if err != nil {
+			span.RecordError(err)
+			return err
+		}
+		_ = os.Setenv("TMPDIR", tmpPath)
+	}
+
+	rc, err := redis.GetRedisClient(conf.Redis)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+
+	req := &livekit.StartEgressRequest{}
+	reqString := c.String("request")
+	err = protojson.Unmarshal([]byte(reqString), req)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+
+	rpcHandler := egress.NewRedisRPCServer(rc)
+	handler := NewHandler(conf, rpcHandler)
+
+	killChan := make(chan os.Signal, 1)
+	signal.Notify(killChan, syscall.SIGINT)
+
+	go func() {
+		sig := <-killChan
+		logger.Infow("exit requested, stopping recording and shutting down", "signal", sig)
+		handler.Kill()
+	}()
+
+	handler.HandleRequest(ctx, req)
+	return nil
 }
 
 func (s *Service) Status() ([]byte, error) {

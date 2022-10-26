@@ -29,7 +29,11 @@ func New(ctx context.Context, conf *config.Config, p *params.Params) (Input, err
 
 	case *livekit.EgressInfo_TrackComposite,
 		*livekit.EgressInfo_Track:
-		return sdk.NewSDKInput(ctx, p)
+		if p.SourceParams.Participant != nil {
+			return sdk.NewSDKInputWithPresubscription(ctx, p)
+		} else {
+			return sdk.NewSDKInput(ctx, p)
+		}
 
 	default:
 		return nil, errors.ErrInvalidInput("request")

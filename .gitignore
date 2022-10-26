@@ -7,3 +7,4 @@ test/*.yaml
 !test/config-sample.yaml
 config*.yaml
 *.out
+*debug_bin

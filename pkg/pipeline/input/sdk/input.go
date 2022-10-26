@@ -2,10 +2,12 @@ package sdk
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/tinyzimmer/go-gst/gst"
 	"github.com/tinyzimmer/go-gst/gst/app"
 	"go.uber.org/atomic"
 
@@ -60,6 +62,77 @@ type SDKInput struct {
 	startRecording chan struct{}
 }
 
+func NewSDKInputWithPresubscription(ctx context.Context, p *params.Params) (*SDKInput, error) {
+	ctx, span := tracer.Start(ctx, "SDKInput.NewWithPreSubscribedRoom")
+	defer span.End()
+
+	s := &SDKInput{
+		logger:         p.Logger,
+		cs:             &Synchronizer{},
+		mutedChan:      p.MutedChan,
+		endRecording:   make(chan struct{}),
+		startRecording: make(chan struct{}),
+	}
+
+	// Now setup the data, we assume both audio and video are subscribed
+	// and we can just use the first track for each
+	var err error
+	rp := p.SourceParams.Participant
+	for _, track := range rp.Tracks() {
+
+		println("track", track.Name(), track.Kind().String())
+
+		// Track must be subscribed
+		// if !track.IsSubscribed() {
+		// 	return nil, nil
+		// }
+
+		src, err := gst.NewElementWithName("appsrc", "") // need name?
+		if err != nil {
+			s.logger.Errorw("could not create appsrc", err)
+			return nil, err
+		}
+
+		webrtcTrack := track.Track().(*webrtc.TrackRemote)
+		codecMimeType := params.MimeType(strings.ToLower(webrtcTrack.Codec().MimeType)) // !!!
+		writeBlanks := true
+
+		switch webrtcTrack.Kind() {
+		case webrtc.RTPCodecTypeAudio:
+			s.audioSrc = app.SrcFromElement(src)
+			s.audioPlaying = make(chan struct{})
+			s.audioCodec = webrtcTrack.Codec()
+			s.audioWriter, err = NewAppWriter(webrtcTrack, codecMimeType, rp, s.logger, s.audioSrc, s.cs, s.audioPlaying, writeBlanks)
+			s.audioParticipant = rp.Identity()
+			if err != nil {
+				s.logger.Errorw("could not create app writer", err)
+				return nil, err
+			}
+
+		case webrtc.RTPCodecTypeVideo:
+			s.videoSrc = app.SrcFromElement(src)
+			s.videoPlaying = make(chan struct{})
+			s.videoCodec = webrtcTrack.Codec()
+			s.videoWriter, err = NewAppWriter(webrtcTrack, codecMimeType, rp, s.logger, s.videoSrc, s.cs, s.videoPlaying, writeBlanks)
+			s.videoParticipant = rp.Identity()
+			if err != nil {
+				s.logger.Errorw("could not create app writer", err)
+				return nil, err
+			}
+		}
+	}
+
+	input, err := builder.NewSDKInput(ctx, p, s.audioSrc, s.videoSrc, s.audioCodec, s.videoCodec)
+	if err != nil {
+		// Log error
+		println(err)
+		return nil, err
+	}
+	s.InputBin = input
+
+	return s, nil
+}
+
 func NewSDKInput(ctx context.Context, p *params.Params) (*SDKInput, error) {
 	ctx, span := tracer.Start(ctx, "SDKInput.New")
 	defer span.End()
@@ -86,7 +159,7 @@ func NewSDKInput(ctx context.Context, p *params.Params) (*SDKInput, error) {
 }
 
 func (s *SDKInput) StartRecording() chan struct{} {
-	return s.startRecording
+	return nil
 }
 
 func (s *SDKInput) GetStartTime() int64 {
