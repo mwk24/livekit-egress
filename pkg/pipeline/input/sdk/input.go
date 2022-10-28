@@ -80,7 +80,8 @@ func NewSDKInputWithPresubscription(ctx context.Context, p *params.Params) (*SDK
 	rp := p.SourceParams.Participant
 	for _, track := range rp.Tracks() {
 
-		println("track", track.Name(), track.Kind().String())
+		// For some reason this prevents track.Track() becoming nil (GC stuff?)
+		println("track", track.Name(), track.Kind().String(), track.Track())
 
 		// Track must be subscribed
 		// if !track.IsSubscribed() {
@@ -122,6 +123,7 @@ func NewSDKInputWithPresubscription(ctx context.Context, p *params.Params) (*SDK
 		}
 	}
 
+	// What's with all these similar names for everything?
 	input, err := builder.NewSDKInput(ctx, p, s.audioSrc, s.videoSrc, s.audioCodec, s.videoCodec)
 	if err != nil {
 		// Log error
@@ -129,6 +131,8 @@ func NewSDKInputWithPresubscription(ctx context.Context, p *params.Params) (*SDK
 		return nil, err
 	}
 	s.InputBin = input
+
+	// Now we have to handle the unpublish stuff ourselves
 
 	return s, nil
 }

@@ -228,10 +228,10 @@ func getPipelineParams(conf *config.Config, request *livekit.StartEgressRequest)
 		p.VideoTrackID = req.TrackComposite.VideoTrackId
 		p.AudioEnabled = p.AudioTrackID != ""
 		p.VideoEnabled = p.VideoTrackID != ""
-		// if !p.AudioEnabled && !p.VideoEnabled {
-		// 	err = errors.ErrInvalidInput("TrackIDs")
-		// 	return
-		// }
+		if !p.AudioEnabled && !p.VideoEnabled {
+			err = errors.ErrInvalidInput("TrackIDs")
+			return
+		}
 
 		// output params
 		switch o := req.TrackComposite.Output.(type) {
@@ -297,9 +297,9 @@ func getPipelineParams(conf *config.Config, request *livekit.StartEgressRequest)
 		return
 	}
 
-	// if err = p.updateConnectionInfo(request); err != nil {
-	// 	return
-	// }
+	if err = p.updateConnectionInfo(request); err != nil {
+		return
+	}
 
 	if p.OutputType != "" {
 		if err = p.updateCodecs(); err != nil {

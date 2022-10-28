@@ -15,4 +15,4 @@ if ! [ -z $TMPDIR ]; then
 fi
 
 # Run egress service
-exec egress
+# exec egress
