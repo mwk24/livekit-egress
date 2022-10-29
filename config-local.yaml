@@ -1,0 +1,40 @@
+# required fields
+api_key: APIHYX2vdXLT3oe
+api_secret: dxfPoakqucFjbSS3DyLUs9sgHA4YpQ2Pt5I5ZCPjx6e
+ws_url: ws://127.0.0.1:7880
+insecure: true
+log_level: debug
+redis:
+  address: 127.0.0.1:6379
+  #username: redis username
+  #password: redis password
+  #db: redis db
+
+# optional fields
+# health_port: if used, will open an http port for health checks
+# prometheus_port: port used to collect prometheus metrics. Used for autoscaling
+# log_level: debug, info, warn, or error (default info)
+# template_base: can be used to host custom templates (default https://egress-composite.livekit.io)
+# insecure: can be used to connect to an insecure websocket (default false)
+# local_directory: base path where to store media files before they get uploaded to blob storage. This does not affect the storage path if no upload location is given.
+
+# # file upload config - only one of the following. Can be overridden
+# s3:
+#   access_key: AWS_ACCESS_KEY_ID env can be used instead
+#   secret: AWS_SECRET_ACCESS_KEY env can be used instead
+#   region: AWS_DEFAULT_REGION env can be used instead
+#   endpoint: optional custom endpoint
+#   bucket: bucket to upload files to
+# azure:
+#   account_name: AZURE_STORAGE_ACCOUNT env can be used instead
+#   account_key: AZURE_STORAGE_KEY env can be used instead
+#   container_name: container to upload files to
+# gcp:
+#   credentials_json: GOOGLE_APPLICATION_CREDENTIALS env can be used instead
+#   bucket: bucket to upload files to
+
+# cpu costs for various egress types with their default values
+cpu_cost:
+  room_composite_cpu_cost: 3.0
+  track_composite_cpu_cost: 2.0
+  track_cpu_cost: 1.0
